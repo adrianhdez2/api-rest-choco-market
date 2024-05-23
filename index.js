@@ -15,8 +15,8 @@ const db = mysql.createConnection({
 });
 
 app.post('/login', (req, res) => {
-    const sqlUserCheck = "SELECT username, password, token FROM users WHERE username = ?";
-    const valuesUserCheck = [req.body.matricula];
+    const sqlUserCheck = "SELECT email, password, token FROM users WHERE email = ?";
+    const valuesUserCheck = [req.body.email];
 
     db.query(sqlUserCheck, valuesUserCheck, (err, data) => {
         if (err) {
