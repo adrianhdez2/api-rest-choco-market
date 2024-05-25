@@ -31,17 +31,33 @@ router.post('/login', (req, res) => {
 });
 
 router.post('/register', async (req, res) => {
-    const { names, lastnameP, lastnameM, email, password } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const secret = crypto.randomBytes(64).toString('hex');
+    const { names, lastnameP, lastnameM, email, password, passwordConfirm } = req.body;
+    if (password !== passwordConfirm) return res.status(401).json({ error: "Las contraseñas no coinciden" });
 
-    const query = 'INSERT INTO users (names, apellidoP, apellidoM, email, password, token) VALUES (?, ?, ?, ?, ?, ?)';
-    db.query(query, [names, lastnameP, lastnameM, email, hashedPassword, secret], (err, result) => {
+    const queryEmail = "SELECT * FROM users WHERE email = ?"
+
+    db.query(queryEmail, [email], async (err, data) => {
         if (err) {
-            return res.status(500).json({ error: err });
+            return res.status(500).json({ error: "Error del servidor" });
         }
-        res.status(201).json({ message: 'User registered successfully' });
-    });
+
+        if (data.length > 0) {
+            return res.status(401).json({ error: "Parece que este correo ya existe" });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const secret = crypto.randomBytes(64).toString('hex');
+
+        const query = 'INSERT INTO users (names, apellidoP, apellidoM, email, password, token) VALUES (?, ?, ?, ?, ?, ?)';
+        db.query(query, [names, lastnameP, lastnameM, email, hashedPassword, secret], (err, result) => {
+            if (err) {
+                return res.status(500).json({ error: err });
+            }
+            res.status(200).json({ message: 'User registered successfully' });
+        });
+    })
+
+
 });
 
 router.get('/:id', (req, res) => {
