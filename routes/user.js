@@ -5,12 +5,37 @@ const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const nodemailer = require('nodemailer')
 const dotenv = require('dotenv')
+const crypto = require('node:crypto')
+const cloudinary = require('../cloudinaryConfig');
 dotenv.config()
 
 // const secret = crypto.randomBytes(64).toString('hex')
 
+router.post('/upload', (req, res) => {
+    if (req.files === null) {
+        return res.status(400).json({ msg: 'No file uploaded' });
+    }
+
+    const options = {
+        folder: 'users'
+    }
+
+    const file = req.files.img_user;
+
+    cloudinary.uploader.upload(file.tempFilePath, options, (err, result) => {
+        if (err) {
+            return res.status(500).send(err);
+        }
+        res.json({
+            fileName: file.name,
+            url: result.secure_url
+        });
+    });
+});
+
+
 router.post('/login', (req, res) => {
-    const query = "SELECT id, email, password FROM users WHERE email = ?"
+    const query = "SELECT user_id, email, password FROM users WHERE email = ?"
     const { email, password } = req.body
 
     db.query(query, [email], async (err, data) => {
@@ -30,8 +55,8 @@ router.post('/login', (req, res) => {
         }
 
 
-        const token = jwt.sign({ id: user.id }, process.env.KEY, { expiresIn: '24h' })
-        res.cookie("token", token, { httpOnly: true, maxAge: 360000, secure: true})
+        const token = jwt.sign({ id: user.user_id }, process.env.KEY, { expiresIn: '10d' })
+        res.cookie("token", token, { httpOnly: true, maxAge: 10 * 24 * 60 * 60 * 1000, secure: true })
         return res.status(200).json({ token })
     })
 })
@@ -52,9 +77,12 @@ router.post('/register', async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10)
+        const date = new Date()
+        const registerData = `${date.getFullYear()}-${date.getMonth() < 10 ? '0' + (date.getMonth() + 1) : date.getMonth()}-${date.getDate()}`
+        const user_id = crypto.randomUUID()
 
-        const query = 'INSERT INTO users (names, apellidoP, apellidoM, email, password) VALUES (?, ?, ?, ?, ?)'
-        db.query(query, [names, lastnameP, lastnameM, email, hashedPassword], (err, result) => {
+        const query = 'INSERT INTO users (user_id, full_name, last_name_p, last_name_m, email, registration_date, password) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        db.query(query, [user_id, names, lastnameP, lastnameM, email, registerData, hashedPassword], (err, result) => {
             if (err) {
                 return res.status(500).json({ error: err })
             }
@@ -63,22 +91,32 @@ router.post('/register', async (req, res) => {
     })
 })
 
-router.get('/:id', (req, res) => {
-    const { id } = req.params
+router.post('/user', (req, res) => {
+    const token = req.cookies.token;
+    const { status } = req.body
 
-    const query = "SELECT names, type, pathIMG FROM users WHERE id = ?"
+    if (!token || !status) return res.status(401).json({ error: "Usuario no disponible" });
 
-    db.query(query, [id], async (err, data) => {
-        if (err) return res.status(500).json({ error: err })
+    try {
+        const decoded = jwt.verify(token, process.env.KEY);
+        const id = decoded.id;
 
-        res.status(200).json(data[0])
-    })
+        const query = "SELECT user_id, full_name, last_name_p, last_name_m, phone, email, user_role, picture FROM users WHERE user_id = ?";
+        db.query(query, [id], (err, data) => {
+            if (err) return res.status(500).json({ error: err });
+
+            res.status(200).json(data[0]);
+        });
+
+    } catch (error) {
+        res.status(401).json({ error: "El token de usuario no existe" });
+    }
 })
 
 router.post('/forgot-password', (req, res) => {
     const { email } = req.body
 
-    const sql = "SELECT id, email FROM users WHERE email = ?"
+    const sql = "SELECT user_id, email FROM users WHERE email = ?"
 
     db.query(sql, [email], async (err, data) => {
         if (err) return res.status(500).json({ error: err })
@@ -87,7 +125,8 @@ router.post('/forgot-password', (req, res) => {
             return res.status(401).json({ error: "Este correo no existe" })
         }
         const user = data[0]
-        const token = jwt.sign({ id: user.id }, process.env.KEY, { expiresIn: '5m' })
+        const token = jwt.sign({ id: user.user_id }, process.env.KEY, { expiresIn: '5m' })
+        const year = new Date()
 
         var transporter = nodemailer.createTransport({
             service: 'gmail',
@@ -101,7 +140,112 @@ router.post('/forgot-password', (req, res) => {
             from: process.env.MAIL,
             to: email,
             subject: 'Reestablecer contraseña',
-            text: `http://localhost:5173/resetPassword/${token}`
+            html: `
+            <!DOCTYPE html>
+            <html lang="es">
+            
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Reestablecer contraseña</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        background-color: #f4f4f4;
+                        margin: 0;
+                        padding: 0;
+                    }
+            
+                    .email-container {
+                        max-width: 600px;
+                        margin: 0 auto;
+                        background-color: #ffffff;
+                        padding: 20px;
+                        border: 1px solid #dddddd;
+                    }
+            
+                    .email-header {
+                        text-align: center;
+                        padding: 10px 0;
+                        background-color: #f68e41;
+                        color: #ffffff;
+                    }
+            
+                    .email-header h1 {
+                        margin: 0;
+                        font-size: 24px;
+                    }
+            
+                    .email-body {
+                        padding: 20px;
+                        color: #333333;
+                    }
+            
+                    .email-body h2 {
+                        font-size: 20px;
+                        margin-top: 0;
+                    }
+            
+                    .email-body p {
+                        font-size: 16px;
+                        line-height: 1.5;
+                    }
+            
+                    .email-footer {
+                        text-align: center;
+                        padding: 10px;
+                        background-color: #f4f4f4;
+                        font-size: 14px;
+                        color: #888888;
+                    }
+            
+                    .button {
+                        display: inline-block;
+                        padding: 10px 20px;
+                        color: #ffffff;
+                        background-color: #f68e41;
+                        text-decoration: none;
+                        border-radius: 5px;
+                        margin-bottom: 10px;
+                    }
+            
+                    .button:visited {
+                        color: #ffffff;
+                    }
+            
+                    small {
+                        display: block;
+                        margin-bottom: 30px;
+                    }
+                </style>
+            </head>
+            
+            <body>
+                <div class="email-container">
+                    <div class="email-header">
+                        <h1>Choco Market</h1>
+                    </div>
+                    <div class="email-body">
+                        <h2>Hola,</h2>
+                        <p>Hemos recibido una solicitud para restablecer la contraseña de su cuenta. Si no envió la solicitud, omita
+                            este
+                            correo electrónico y continúe
+                            utilizando su contraseña actual.</p>
+                        <p> Para restablecer su contraseña, haga clic en el siguiente botón en 5 minutos:</p>
+                        <a href="http://localhost:5173/resetPassword/${token}" class="button">Reestablecer contraseña</a>
+                        <small>Si tienes dudas, sientete libre de responder este correo. ¡Estamos aqui para ayudarte!</small>
+                        <p>Atte. Choco Market</p>
+                    </div>
+                    <div class="email-footer">
+                        <p>&copy; ${year.getFullYear()} Choco Market. Todos los derechos reservados.</p>
+                        <p><a href="http://localhost:5173/" style="color: #0073e6; text-decoration: none;">Choco Market</a>
+                        </p>
+                    </div>
+                </div>
+            </body>
+            
+            </html>
+            `
         }
 
         transporter.sendMail(mailOptions, function (error, info) {
@@ -124,7 +268,7 @@ router.post('/reset-password/:token', async (req, res) => {
         const decoded = await jwt.verify(token, process.env.KEY)
         const id = decoded.id
         const hashedPassword = await bcrypt.hash(password, 10)
-        const sql = "UPDATE users SET password = ? WHERE id = ?"
+        const sql = "UPDATE users SET password = ? WHERE user_id = ?"
 
         db.query(sql, [hashedPassword, id], (err, data) => {
             if (err) return res.status(500).json({ error: err })
