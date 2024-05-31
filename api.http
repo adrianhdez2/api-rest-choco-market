@@ -1,0 +1,30 @@
+### Obtener usuario por id
+GET http://localhost:3001/users/:id
+content-type: application/json
+
+### Obtener usuario por token
+POST http://localhost:3001/users/user
+
+### Verificar token de usuario
+GET http://localhost:3001/users/verify
+
+### Cerrar sesrión
+POST http://localhost:3001/auth/logout
+
+### Enviar correo
+POST http://localhost:3001/auth/forgot-password
+
+### Actualizar contraseña por Id
+PATCH http://localhost:3001/users/user/id
+
+
+
+### Login de usuario
+POST http://localhost:3001/auth/login
+content-type: application/json
+
+{
+    "email": "cesarahh3@gmail.com",
+    "password": "********"
+}
+
