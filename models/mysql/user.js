@@ -1,16 +1,4 @@
-import mysql from 'mysql2/promise'
-
-const DEFAULT_CONFIG = {
-    host: 'localhost',
-    user: 'root',
-    port: 3306,
-    password: '1111',
-    database: 'db-choco'
-}
-
-const connectionString = process.env.DATABASE_URL ?? DEFAULT_CONFIG
-
-const connection = await mysql.createConnection(connectionString)
+import connection from "../../configs/dbConnection.js"
 
 export class UserModel {
     static async getById({ id }) {  // --> Obtener usuario por ID a la BD
@@ -24,12 +12,20 @@ export class UserModel {
         return user[0]
     }
 
-    static async updatePasswordById({ id, password }) {
+    static async updatePasswordById({ id, hashedPassword }) {  // --> Actualizar contraseña por ID a la BD
         const [user] = await connection.query(
             'UPDATE users SET password = ? WHERE user_id = ?',
-            [password, id]
+            [hashedPassword, id]
         )
+        return user
+    }
 
-        console.log(user);
+    static async updatePhotoUser({ url, id_public, id }) {
+        const [user] = await connection.query(
+            'UPDATE users SET picture = ?, public_id_picture = ? WHERE user_id = ?',
+            [url, id_public, id]
+        );
+
+        return user
     }
 }
