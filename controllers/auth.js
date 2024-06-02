@@ -3,6 +3,8 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
 import nodemailer from 'nodemailer'
+import crypto from 'crypto'
+import cloudinary from "../configs/clodinary.js"
 
 dotenv.config()
 
@@ -22,7 +24,7 @@ export class AuthController {
         return res.status(200).json({ token })
     }
 
-    static async logOut(req, res) {
+    static async logOut(req, res) {  // --> Cerrar sesión de usuario
         try {
             const token = req.cookies.token
             if (token) {
@@ -36,142 +38,76 @@ export class AuthController {
         }
     }
 
-    static async sendEmail(req, res) {
-        const { email } = req.body
-        const user = await AuthModel.getUserByEmail({ email })
+    static async sendEmail(req, res) {  // --> Enviar correo electrónico de reestablecimiento de contraseña
+        try {
+            const { email } = req.body
+            const user = await AuthModel.getUserByEmail({ email })
 
-        if (!user) return res.status(401).json({ error: 'Email not found' })
+            if (!user) return res.status(401).json({ error: 'Email not found' })
 
-        const token = jwt.sign({ id: user.user_id }, process.env.KEY, { expiresIn: '5m' })
+            const token = jwt.sign({ id: user.user_id }, process.env.KEY, { expiresIn: '5m' })
 
-        const year = new Date()
+            await AuthModel.sendEmail({ email, token })
 
-        var transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.MAIL,
-                pass: process.env.PASS
-            }
-        })
-
-        var mailOptions = {
-            from: process.env.MAIL,
-            to: email,
-            subject: 'Reestablecer contraseña',
-            html: `
-            <!DOCTYPE html>
-            <html lang="es">
-            
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Reestablecer contraseña</title>
-                <style>
-                    body {
-                        font-family: Arial, sans-serif;
-                        background-color: #f4f4f4;
-                        margin: 0;
-                        padding: 0;
-                    }
-            
-                    .email-container {
-                        max-width: 600px;
-                        margin: 0 auto;
-                        background-color: #ffffff;
-                        padding: 20px;
-                        border: 1px solid #dddddd;
-                    }
-            
-                    .email-header {
-                        text-align: center;
-                        padding: 10px 0;
-                        background-color: #f68e41;
-                        color: #ffffff;
-                    }
-            
-                    .email-header h1 {
-                        margin: 0;
-                        font-size: 24px;
-                    }
-            
-                    .email-body {
-                        padding: 20px;
-                        color: #333333;
-                    }
-            
-                    .email-body h2 {
-                        font-size: 20px;
-                        margin-top: 0;
-                    }
-            
-                    .email-body p {
-                        font-size: 16px;
-                        line-height: 1.5;
-                    }
-            
-                    .email-footer {
-                        text-align: center;
-                        padding: 10px;
-                        background-color: #f4f4f4;
-                        font-size: 14px;
-                        color: #888888;
-                    }
-            
-                    .button {
-                        display: inline-block;
-                        padding: 10px 20px;
-                        color: #ffffff;
-                        background-color: #f68e41;
-                        text-decoration: none;
-                        border-radius: 5px;
-                        margin-bottom: 10px;
-                    }
-            
-                    .button:visited {
-                        color: #ffffff;
-                    }
-            
-                    small {
-                        display: block;
-                        margin-bottom: 30px;
-                    }
-                </style>
-            </head>
-            
-            <body>
-                <div class="email-container">
-                    <div class="email-header">
-                        <h1>Choco Market</h1>
-                    </div>
-                    <div class="email-body">
-                        <h2>Hola,</h2>
-                        <p>Hemos recibido una solicitud para restablecer la contraseña de su cuenta. Si no envió la solicitud, omita
-                            este
-                            correo electrónico y continúe
-                            utilizando su contraseña actual.</p>
-                        <p> Para restablecer su contraseña, haga clic en el siguiente botón en 5 minutos:</p>
-                        <a href="http://localhost:5173/resetPassword/${token}" class="button">Reestablecer contraseña</a>
-                        <small>Si tienes dudas, sientete libre de responder este correo. ¡Estamos aqui para ayudarte!</small>
-                        <p>Atte. Choco Market</p>
-                    </div>
-                    <div class="email-footer">
-                        <p>&copy; ${year.getFullYear()} Choco Market. Todos los derechos reservados.</p>
-                        <p><a href="http://localhost:5173/" style="color: #0073e6; text-decoration: none;">Choco Market</a>
-                        </p>
-                    </div>
-                </div>
-            </body>
-            
-            </html>
-            `
+            res.json({ status: true, message: "Se envió correctamente" });
+        } catch (error) {
+            return res.status(401).json({ error: "Ocurrió un error al enviar el correo" })
         }
 
-        transporter.sendMail(mailOptions, function (error, info) {
-            if (error) {
-                return res.status(401).json({ error: error })
-            } else {
-                return res.json({ status: true, message: "Se envió correctamente" })
-            }
-        })
+    }
+
+    static async createNewUser(req, res) { // --> Crear un nuevo usuario
+        const { names, lastnameP, lastnameM, email, password, passwordConfirm } = req.body
+        if (password !== passwordConfirm) return res.status(401).json({ error: "Las contraseñas no coinciden" })
+
+        const user = await AuthModel.getUserByEmail({ email })
+
+        if (user) return res.status(401).json({ error: "Este correo ya existe" })
+
+        const hashedPassword = await bcrypt.hash(password, 10)
+        const currentDate = new Date()
+        const registerDate = currentDate.toISOString()
+        const user_id = crypto.randomUUID()
+        const picture = 'http://localhost:5173/users/default.png'
+        const public_id_picture = 'default'
+
+        const query = await AuthModel.createUser({ user_id, names, lastnameP, lastnameM, email, hashedPassword, picture, public_id_picture, registerDate })
+
+        if (!query) return res.status(401).json({ error: "Error al guardar los datos" })
+
+        return res.status(200).json({ status: true, message: "Se creo el usuario correctamente" })
+    }
+
+    static async deleteUser(req, res) { // --> Eliminar la cuenta de usuario
+        const token = req.cookies.token
+
+        if (!token) return res.status(401).json({ error: "Usuario no valido" })
+
+        const decoded = jwt.verify(token, process.env.KEY)
+        const id = decoded.id
+
+        const userInf = await AuthModel.getById({ id })
+
+        if (!userInf) return res.status(401).json({error: "No hay usuario"})
+
+        const public_id_picture = userInf.public_id_picture
+
+        if (public_id_picture !== 'default') {
+            cloudinary.api.delete_resources(public_id_picture, { type: 'upload', resource_type: 'image' }, (error, results) => {
+                if (error) {
+                    console.log(error)
+                } else {
+                    console.log(results);
+                }
+            })
+        }
+
+        const user = AuthModel.deleteAccount({ id })
+
+        if (!user) return res.status(401).json({ error: "El usuario no existe" })
+
+        res.clearCookie("token");
+
+        return res.json({ status: true, message: "Se eliminó correctamente" })
     }
 }
