@@ -1,6 +1,7 @@
 import connection from "../../configs/dbConnection.js"
 import dotenv from 'dotenv'
 import nodemailer from 'nodemailer'
+import { sendPersonalEmail } from "../../utils/sendEmail.js"
 
 dotenv.config()
 
@@ -41,22 +42,10 @@ export class AuthModel {
         return user
     }
 
-    static sendEmail({ email, token }) {
+    static async sendEmail({ email, token }) {
         const year = new Date()
 
-        var transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.MAIL,
-                pass: process.env.PASS
-            }
-        })
-
-        var mailOptions = {
-            from: process.env.MAIL,
-            to: email,
-            subject: 'Reestablecer contraseña',
-            html: `
+        const body = `
             <!DOCTYPE html>
             <html lang="es">
             
@@ -162,23 +151,130 @@ export class AuthModel {
             
             </html>
             `
-        }
 
-        return new Promise((resolve, reject) => {
-            transporter.sendMail(mailOptions, function (error, info) {
-                if (error) {
-                    reject(error)
-                } else {
-                    resolve(info)
+            await sendPersonalEmail(email, 'Reestablecer contraseña', body)
+    }
+
+    static async sendOTP({ email, otp }) { // --> Enviar código de verificación por email
+
+        const body = `
+        <!DOCTYPE html>
+        <html lang="es">
+        
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Reestablecer contraseña</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background-color: #f4f4f4;
+                    margin: 0;
+                    padding: 0;
                 }
-            })
-        })
-
-
+        
+                .email-container {
+                    max-width: 600px;
+                    margin: 0 auto;
+                    background-color: #ffffff;
+                    padding: 20px;
+                    border: 1px solid #dddddd;
+                }
+        
+                .email-header {
+                    text-align: center;
+                    padding: 10px 0;
+                    background-color: #f68e41;
+                    color: #ffffff;
+                }
+        
+                .email-header h1 {
+                    margin: 0;
+                    font-size: 24px;
+                }
+        
+                .email-body {
+                    padding: 20px;
+                    color: #333333;
+                }
+        
+                .email-body h2 {
+                    font-size: 20px;
+                    margin-top: 0;
+                }
+        
+                .email-body p {
+                    font-size: 16px;
+                    line-height: 1.5;
+                }
+        
+                .email-footer {
+                    text-align: center;
+                    padding: 10px;
+                    background-color: #f4f4f4;
+                    font-size: 14px;
+                    color: #888888;
+                }
+        
+                .button {
+                    display: inline-block;
+                    padding: 10px 20px;
+                    color: #ffffff;
+                    background-color: #f68e41;
+                    text-decoration: none;
+                    border-radius: 5px;
+                    margin-bottom: 10px;
+                }
+        
+                .button:visited {
+                    color: #ffffff;
+                }
+        
+                small {
+                    display: block;
+                    margin-bottom: 30px;
+                }
+            </style>
+        </head>
+        
+        <body>
+            <div class="email-container">
+                <strong>Your OTP code is: ${otp}</strong>
+            </div>
+        </body>
+        
+        </html>
+        `
+        await sendPersonalEmail(email, 'Código de verificación', body)
     }
 
     static async deleteAccount({ id }) { // --> Eliminar usuario de la base de datos por ID
         const [user] = await connection.query('DELETE from users WHERE user_id = ?', [id])
+        return user
+    }
+
+    static async saveOTP({email, otp, expires_at}){
+        const [user] = await connection.query(
+            'INSERT INTO otps (email, otp, expires_at) VALUES (?, ?, ?)',
+            [email, otp, expires_at]
+        )
+        return user
+    }
+
+    static async getOTP({email, otp}){
+        const [user] = await connection.query(
+            'SELECT * FROM otps WHERE email = ? AND otp = ?',
+            [email, otp]
+        )
+        if (user.length === 0) return null
+        return user[0]
+    }
+
+    static async deleteOTP({email, otp}){
+        const [user] = await connection.query(
+            'DELETE FROM otps WHERE email = ? AND otp = ?',
+            [email, otp]
+        )
         return user
     }
 }

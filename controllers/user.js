@@ -1,7 +1,8 @@
 import { UserModel } from "../models/mysql/user.js"
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
-import cloudinary from '../configs/clodinary.js'
+import cloudinary from '../configs/cloudinary.js'
+import { deleteCloudinaryResource } from "../utils/deleteResource.js"
 
 export class UserController {
 
@@ -88,13 +89,7 @@ export class UserController {
             const public_id_picture = userInf.public_id_picture
 
             if (public_id_picture !== 'default') {
-                cloudinary.api.delete_resources(public_id_picture, { type: 'upload', resource_type: 'image' }, (error, results) => {
-                    if (error) {
-                        console.log(error)
-                    } else {
-                        console.log(results);
-                    }
-                })
+                await deleteCloudinaryResource(public_id_picture)
             }
 
             const user = await UserModel.updatePhotoUser({ url, id_public, id })
