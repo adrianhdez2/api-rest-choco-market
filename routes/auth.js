@@ -8,3 +8,4 @@ authRouter.post('/logout', AuthController.logOut)  // --> Cerrar sesión de usua
 authRouter.post('/forgot-password', AuthController.sendEmail) // --> Enviar email para reestablecer contraseña
 authRouter.post('/register', AuthController.createNewUser) // --> Crear nuevo usuario
 authRouter.post('/delete', AuthController.deleteUser) // --> Eliminar cuenta de usuario
+authRouter.get('/validate', AuthController.sendEmailOTP)
