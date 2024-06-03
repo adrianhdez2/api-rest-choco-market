@@ -156,15 +156,16 @@ export class AuthModel {
     }
 
     static async sendOTP({ email, otp }) { // --> Enviar código de verificación por email
+        const year = new Date()
 
         const body = `
         <!DOCTYPE html>
         <html lang="es">
-        
+
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Reestablecer contraseña</title>
+            <title>Código de verificación</title>
             <style>
                 body {
                     font-family: Arial, sans-serif;
@@ -172,7 +173,7 @@ export class AuthModel {
                     margin: 0;
                     padding: 0;
                 }
-        
+
                 .email-container {
                     max-width: 600px;
                     margin: 0 auto;
@@ -180,34 +181,29 @@ export class AuthModel {
                     padding: 20px;
                     border: 1px solid #dddddd;
                 }
-        
+
                 .email-header {
                     text-align: center;
                     padding: 10px 0;
                     background-color: #f68e41;
                     color: #ffffff;
                 }
-        
+
                 .email-header h1 {
                     margin: 0;
                     font-size: 24px;
                 }
-        
+
                 .email-body {
                     padding: 20px;
                     color: #333333;
                 }
-        
-                .email-body h2 {
+
+                .email-body h3 {
                     font-size: 20px;
                     margin-top: 0;
                 }
-        
-                .email-body p {
-                    font-size: 16px;
-                    line-height: 1.5;
-                }
-        
+
                 .email-footer {
                     text-align: center;
                     padding: 10px;
@@ -215,37 +211,47 @@ export class AuthModel {
                     font-size: 14px;
                     color: #888888;
                 }
-        
-                .button {
-                    display: inline-block;
-                    padding: 10px 20px;
-                    color: #ffffff;
-                    background-color: #f68e41;
-                    text-decoration: none;
-                    border-radius: 5px;
-                    margin-bottom: 10px;
+
+                .otp {
+                    text-align: center;
+                    padding: 20px 10px;
+                    letter-spacing: 10px;
+                    font-size: 32px;
+                    font-weight: 400;
                 }
-        
-                .button:visited {
-                    color: #ffffff;
-                }
-        
+
                 small {
                     display: block;
-                    margin-bottom: 30px;
+                    margin-bottom: 5px;
                 }
             </style>
         </head>
-        
+
         <body>
             <div class="email-container">
-                <strong>Your OTP code is: ${otp}</strong>
+                <div class="email-header">
+                    <h1>Choco Market</h1>
+                </div>
+                <div class="email-body">
+                    <h3>Usa el siguiente código para actualizar tu contraseña</h3>
+                    <h4>Valido solo por 5 minutos.</h4>
+                    <small>Por seguridad, nunca compartas tus códigos con nadie.</small>
+
+                    <p class="otp">${otp}</p>
+
+                    <small>Si no envió la solicitud, omita este correo electrónico.</small>
+                </div>
+                <div class="email-footer">
+                    <p>&copy; ${year.getFullYear()} Choco Market. Todos los derechos reservados.</p>
+                    <p><a href="http://localhost:5173/" style="color: #0073e6; text-decoration: none;">Choco Market</a>
+                    </p>
+                </div>
             </div>
         </body>
-        
+
         </html>
         `
-        await sendPersonalEmail(email, 'Código de verificación', body)
+        await sendPersonalEmail(email, 'Cambia tu contraseña con tu código de verificación', body)
     }
 
     static async deleteAccount({ id }) { // --> Eliminar usuario de la base de datos por ID
