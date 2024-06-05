@@ -4,6 +4,7 @@ import { corsMiddleware } from './middlewares/cors.js'
 import { authRouter } from './routes/auth.js'
 import cookieParser from 'cookie-parser'
 import fileUpload from 'express-fileupload'
+import { productsRouter } from './routes/products.js'
 
 const app = express()
 
@@ -17,6 +18,7 @@ app.use(fileUpload({
 }))
 app.use('/users', usersRuter)
 app.use('/auth', authRouter)
+app.use('/products', productsRouter)
 
 const PORT = process.env.PORT || 3001
 

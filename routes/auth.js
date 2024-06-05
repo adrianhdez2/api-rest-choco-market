@@ -8,4 +8,7 @@ authRouter.post('/logout', AuthController.logOut)  // --> Cerrar sesión de usua
 authRouter.post('/forgot-password', AuthController.sendEmail) // --> Enviar email para reestablecer contraseña
 authRouter.post('/register', AuthController.createNewUser) // --> Crear nuevo usuario
 authRouter.post('/delete', AuthController.deleteUser) // --> Eliminar cuenta de usuario
-authRouter.get('/validate', AuthController.sendEmailOTP)
+authRouter.get('/validate', AuthController.sendEmailOTP) // --> Enviar código de verificación OTP
+authRouter.post('/verifyEmail', AuthController.sendEmailValidation) // --> Enviar correo para validación de email
+authRouter.post('/email/verify/:token', AuthController.verifyEmailToken) // --> Verificar el correo eletrónico mediante token
+authRouter.get('/verifiedEmail', AuthController.getVerified) // --> Obtener validación del email de usuario

@@ -49,7 +49,7 @@ export class UserController {
             const decoded = jwt.verify(token, process.env.KEY)
             const id = decoded.id
             const hashedPassword = await bcrypt.hash(password, 10)
-            const user = UserModel.updatePasswordById({ id, hashedPassword })
+            const user = await UserModel.updatePasswordById({ id, hashedPassword })
 
             if (!user) return res.status(401).json({ error: "Error al reestableceer la contraseña" })
 

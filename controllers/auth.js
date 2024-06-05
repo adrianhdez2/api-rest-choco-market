@@ -62,12 +62,36 @@ export class AuthController {
         }
     }
 
+    static async sendEmailValidation(req, res) {
+        try {
+            const token = req.cookies.token
+
+            if (!token) return res.status(401).json({ error: "No hay token de usuario" })
+
+            const decoded = jwt.verify(token, process.env.KEY)
+            const id = decoded.id
+
+            const user = await AuthModel.getById({ id })
+
+            if (!user) return res.status(401).json({ error: 'Email not found' })
+
+            const tokenSend = jwt.sign({ id: user.user_id }, process.env.KEY, { expiresIn: '5m' })
+            const email = user.email
+
+            await AuthModel.sendEmailValidation({ email, tokenSend })
+
+            res.json({ status: true, message: "Se envió correctamente" });
+        } catch (error) {
+            return res.status(401).json({ error: "Ocurrió un error al enviar el correo" })
+        }
+    }
+
     static async sendEmailOTP(req, res) {
         try {
             const token = req.cookies.token
             const decoded = jwt.verify(token, process.env.KEY)
             const id = decoded.id
-            const user = await AuthModel.getById({ id })   
+            const user = await AuthModel.getById({ id })
 
             if (!user) return res.status(401).json({ error: "No hay usuario" })
 
@@ -75,11 +99,11 @@ export class AuthController {
             const otp = generateOTP()
             const expires_at = new Date(Date.now() + 5 * 60 * 1000);
 
-            const userInf = await AuthModel.saveOTP({email, otp, expires_at})
+            const userInf = await AuthModel.saveOTP({ email, otp, expires_at })
 
-            if (!userInf) return res.status(401).json({error: "Ocurrio un error al guardar el código"})
+            if (!userInf) return res.status(401).json({ error: "Ocurrio un error al guardar el código" })
 
-            await AuthModel.sendOTP({ email, otp})
+            await AuthModel.sendOTP({ email, otp })
 
             res.json({ status: true, message: "Se envió correctamente" });
 
@@ -135,5 +159,47 @@ export class AuthController {
         res.clearCookie("token");
 
         return res.json({ status: true, message: "Se eliminó correctamente" })
+    }
+
+    static async verifyEmailToken(req, res) {  // --> Verificar el correo electrónico mediante token
+        const { token } = req.params
+
+        try {
+            if (!token) return res.status(401).json({ error: "El token de usuario no es valido." })
+
+            const tokenSession = req.cookies.token
+
+            const decoded = jwt.verify(token, process.env.KEY)
+            const decodedTokenSession = jwt.verify(tokenSession, process.env.KEY)
+
+            const id = decoded.id
+            const idSession = decodedTokenSession.id
+
+            if (id !== idSession) return res.status(401).json({error: "El id no es valido."})
+
+            const user = AuthModel.verifyEmailById({ id })
+
+            if (!user) return res.status(401).json({ error: "Error al verificar el correo electrónico." })
+
+            return res.json({ status: true, message: "El correo se verificó correctamente." })
+
+        } catch (error) {
+            res.status(401).json({ error: "Este enlace ha expirado." })
+        }
+    }
+
+    static async getVerified(req, res) {
+        const token = req.cookies.token
+
+        if (!token) return res.status(401).json({ error: "No hay token de usuario." })
+
+        const decoded = jwt.verify(token, process.env.KEY)
+        const id = decoded.id
+
+        const user = await AuthModel.getVerifiedById({ id })
+
+        if (!user) return res.status(401).json({ error: "No existe el usuario." })
+
+        return res.json(user)
     }
 }
